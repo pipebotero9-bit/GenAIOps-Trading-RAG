@@ -38,7 +38,7 @@ Incluí a propósito papers con evidencia negativa (los tres de Fibonacci conclu
 | Parte del desafío | Estado |
 |---|---|
 | 1. Cambio de dominio | Listo |
-| 2. Dataset de evaluación | 19 preguntas (9 directas, 4 multi-documento, 3 sin respuesta, 3 adversarias); primera evaluación en curso |
+| 2. Dataset de evaluación | 19 preguntas (9 directas, 4 multi-documento, 3 sin respuesta, 3 adversarias). Primera evaluación: correctness 0,63, retrieval relevance 0,24, safety 1,00 |
 | 3. Experimentos | Pendiente |
 | 4. Evaluadores propios | Pendiente |
 | 5. Confianza en el juez | Pendiente |
