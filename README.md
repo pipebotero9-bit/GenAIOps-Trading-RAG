@@ -1,6 +1,6 @@
 # Chatbot RAG de investigación en trading intradía
 
-Opero futuros MNQ y estoy construyendo TyrVwap, una estrategia intradía para la sesión de Nueva York: entro cuando el precio cruza el VWAP y dos medias móviles confirman la dirección. Cada decisión de diseño (dónde poner el stop, a qué hora operar, si agregar un filtro más) me llevaba a releer los mismos papers buscando qué se había probado y con qué evidencia.
+Opero futuros y estoy construyendo una estrategia intradía para la sesión de Nueva York.  Cada decisión de diseño (dónde poner el stop, a qué hora operar, si agregar un filtro más) me llevaba a releer los mismos papers buscando qué se había probado y con qué evidencia.
 
 Para el proyecto final de GenAIOps convertí esa búsqueda en un chatbot. Le pregunto, por ejemplo, si un stop por precio destruye valor o si los retrocesos de Fibonacci funcionan, y me responde con el método, la muestra y las cifras del paper, separando un backtest de practicantes de una prueba estadística.
 
