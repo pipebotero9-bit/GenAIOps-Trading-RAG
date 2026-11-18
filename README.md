@@ -41,7 +41,7 @@ Incluí a propósito papers con evidencia negativa (los tres de Fibonacci conclu
 | 2. Dataset de evaluación | 19 preguntas (9 directas, 4 multi-documento, 3 sin respuesta, 3 adversarias). Primera evaluación: correctness 0,63, retrieval relevance 0,24, safety 1,00 |
 | 3. Experimentos | 5 configuraciones y 5 fallos diagnosticados. La mejor: k = 8 con el nombre del paper en cada fragmento (correctness 0,79, tono 0,84) |
 | 4. Evaluadores propios | `cita_evidencia` (código), `calibra_evidencia` (juez LLM) y `sin_asesoria_personal` (guía) |
-| 5. Confianza en el juez | Pendiente |
+| 5. Confianza en el juez | Califiqué 10 respuestas a mano: gpt-4o-mini y gpt-4o coinciden conmigo en 9 de 10 (90 %). Mantengo gpt-4o-mini |
 | 6. Producción y CI | Pendiente |
 | 7. Informe | Pendiente |
 
