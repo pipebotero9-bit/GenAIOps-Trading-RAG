@@ -89,12 +89,24 @@ def list_prompt_versions():
     """Alias y versiones disponibles en el registro (o archivos locales si no hay registro)."""
     return list_prompt_options()
 
+# Con FUENTE_EN_CONTEXTO=1 cada fragmento llega al LLM precedido por el nombre
+# del archivo del paper, para que no atribuya un hallazgo al autor equivocado.
+FUENTE_EN_CONTEXTO = os.getenv("FUENTE_EN_CONTEXTO", "0") == "1"
+DOCUMENT_PROMPT = PromptTemplate(
+    input_variables=["page_content", "source"],
+    template="[Fuente: {source}]\n{page_content}",
+)
+
+
 def build_chain(vectordb, prompt_version=DEFAULT_PROMPT, k=4):
     prompt = load_prompt(prompt_version)
     retriever = vectordb.as_retriever(search_kwargs={"k": k})
+    docs_kwargs = {"prompt": prompt}
+    if FUENTE_EN_CONTEXTO:
+        docs_kwargs["document_prompt"] = DOCUMENT_PROMPT
     return ConversationalRetrievalChain.from_llm(
         llm=get_llm(temperature=0),
         retriever=retriever,
-        combine_docs_chain_kwargs={"prompt": prompt},
+        combine_docs_chain_kwargs=docs_kwargs,
         return_source_documents=True  # para mostrar las referencias en la UI
     )
