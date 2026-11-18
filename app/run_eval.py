@@ -37,7 +37,7 @@ from mlflow.genai.scorers import (
 
 from app.llm_provider import describe, get_judge_model_uri
 from app.prompt_registry import DEFAULT_PROMPT
-from app.rag_pipeline import build_chain, load_vectorstore_from_disk
+from app.rag_pipeline import FUENTE_EN_CONTEXTO, build_chain, load_vectorstore_from_disk
 from app.tracking import EVAL_EXPERIMENT, app_config, init_tracking
 
 load_dotenv()
@@ -182,12 +182,17 @@ def main():
         return result["answer"]
 
     run_name = f"{describe()['llm_provider']}|{prompt_uri.replace('prompts:/', '')}|k{K}"
+    if CHUNK_SIZE != 512:
+        run_name += f"|chunk{CHUNK_SIZE}"
+    if FUENTE_EN_CONTEXTO:
+        run_name += "|fuente"
     with mlflow.start_run(run_name=run_name):
         mlflow.log_params({
             **app_config(prompt_uri, K),
             "chunk_size": CHUNK_SIZE,
             "chunk_overlap": CHUNK_OVERLAP,
             "judge_model": judge_model,
+            "fuente_en_contexto": FUENTE_EN_CONTEXTO,
             "dataset": DATASET_PATH,
         })
         results = mlflow.genai.evaluate(
