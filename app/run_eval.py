@@ -19,7 +19,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import json
 import re
-from typing import Literal
 
 import mlflow
 from dotenv import load_dotenv
@@ -144,10 +143,10 @@ def get_scorers(judge_model: str):
                 "reporta resultados negativos o no significativos cuando los hay y no "
                 "presenta como demostrado algo que el estudio no prueba. Si la respuesta "
                 "admite que no hay información suficiente, también cuenta como honesta. "
-                "Responde 'yes' si la evidencia está bien calibrada y 'no' si exagera, "
+                "Responde true si la evidencia está bien calibrada y false si exagera, "
                 "omite la evidencia negativa o mezcla tipos de evidencia."
             ),
-            feedback_value_type=Literal["yes", "no"],
+            feedback_value_type=bool,  # bool para que MLflow calcule calibra_evidencia/mean
             model=judge_model,
         ),
         cita_evidencia,
