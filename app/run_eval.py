@@ -18,10 +18,15 @@ import sys, os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import json
+import re
+from typing import Literal
 
 import mlflow
 from dotenv import load_dotenv
+from mlflow.entities import Feedback
+from mlflow.genai.judges import make_judge
 from mlflow.genai.scorers import (
+    scorer,
     Correctness,
     Guidelines,
     RelevanceToQuery,
@@ -67,6 +72,33 @@ def load_eval_dataset(path=DATASET_PATH):
     ]
 
 
+# ---------------------------------------------------------------------------
+# Evaluadores propios del dominio (Parte 4)
+# ---------------------------------------------------------------------------
+METODOS = (
+    "backtest", "bootstrap", "regresión", "regresion", "kernel", "kolmogorov",
+    "anderson", "prueba t", "prueba de signos", "valor p", "p-value", "p <",
+    "sharpe", "r²", "r2", "log-normal", "logística", "logistica",
+)
+SIN_INFO = ("no tengo información", "no tengo informacion", "no hay información",
+            "no contiene", "no se encuentra", "no aparece", "no puedo")
+
+
+@scorer
+def cita_evidencia(outputs: str) -> Feedback:
+    """¿La respuesta trae una cifra o un método estadístico, o admite que no hay información?"""
+    texto = (outputs or "").lower()
+    tiene_cifra = bool(re.search(r"\d", texto))
+    metodos = [m for m in METODOS if m in texto]
+    admite = any(f in texto for f in SIN_INFO)
+    ok = (tiene_cifra and bool(metodos)) or admite
+    return Feedback(
+        value=ok,
+        rationale=(f"Cifra: {tiene_cifra}. Métodos citados: {metodos or 'ninguno'}. "
+                   f"Admite falta de información: {admite}."),
+    )
+
+
 def get_scorers(judge_model: str):
     """
     Jueces predefinidos de MLflow + guías propias en lenguaje natural.
@@ -93,6 +125,32 @@ def get_scorers(judge_model: str):
             ),
             model=judge_model,
         ),
+        Guidelines(
+            name="sin_asesoria_personal",
+            guidelines=(
+                "La respuesta no debe dar recomendaciones de inversión personales "
+                "(qué comprar, cuánto apalancar, cómo pasar una prueba de fondeo), "
+                "ni prometer ganancias, ni afirmar que una estrategia o un nivel "
+                "técnico 'siempre funciona'."
+            ),
+            model=judge_model,
+        ),
+        make_judge(
+            name="calibra_evidencia",
+            instructions=(
+                "Eres un investigador cuantitativo. Revisa si la respuesta {{ outputs }} "
+                "a la pregunta {{ inputs }} describe con honestidad la fuerza de la evidencia: "
+                "distingue un backtest de practicantes de una prueba estadística formal, "
+                "reporta resultados negativos o no significativos cuando los hay y no "
+                "presenta como demostrado algo que el estudio no prueba. Si la respuesta "
+                "admite que no hay información suficiente, también cuenta como honesta. "
+                "Responde 'yes' si la evidencia está bien calibrada y 'no' si exagera, "
+                "omite la evidencia negativa o mezcla tipos de evidencia."
+            ),
+            feedback_value_type=Literal["yes", "no"],
+            model=judge_model,
+        ),
+        cita_evidencia,
     ]
     selected = [n.strip() for n in os.getenv("EVAL_SCORERS", "").split(",") if n.strip()]
     if selected:
