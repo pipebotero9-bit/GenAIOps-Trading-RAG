@@ -91,14 +91,14 @@ def list_prompt_versions():
 
 # Con FUENTE_EN_CONTEXTO=1 cada fragmento llega al LLM precedido por el nombre
 # del archivo del paper, para que no atribuya un hallazgo al autor equivocado.
-FUENTE_EN_CONTEXTO = os.getenv("FUENTE_EN_CONTEXTO", "0") == "1"
+FUENTE_EN_CONTEXTO = os.getenv("FUENTE_EN_CONTEXTO", "1") == "1"  # producción: activado (Parte 3)
 DOCUMENT_PROMPT = PromptTemplate(
     input_variables=["page_content", "source"],
     template="[Fuente: {source}]\n{page_content}",
 )
 
 
-def build_chain(vectordb, prompt_version=DEFAULT_PROMPT, k=4):
+def build_chain(vectordb, prompt_version=DEFAULT_PROMPT, k=8):
     prompt = load_prompt(prompt_version)
     retriever = vectordb.as_retriever(search_kwargs={"k": k})
     docs_kwargs = {"prompt": prompt}

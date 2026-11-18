@@ -28,7 +28,7 @@ jobs:
 
     - name: Verificar credenciales
       env:
-        LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'openai' }}
+        LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'groq' }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
       run: |
@@ -46,12 +46,15 @@ jobs:
           echo "::error::El secret $NAME no es válido (HTTP $STATUS): la key fue revocada, venció o se copió mal. Genera una nueva y actualiza el secret."; exit 1
         fi
         echo "Credenciales OK ($NAME, HTTP $STATUS)"
+        if [ -z "$OPENAI_API_KEY" ]; then
+          echo "::error::Falta el secret OPENAI_API_KEY: el juez es openai:/gpt-4o-mini."; exit 1
+        fi
 
     - name: Ejecutar evaluación (jueces LLM de MLflow)
       env:
-        LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'openai' }}
-        EVAL_MODEL: ${{ vars.EVAL_MODEL }}
-        PROMPT_VERSION: ${{ vars.PROMPT_VERSION }}
+        LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'groq' }}
+        EVAL_MODEL: ${{ vars.EVAL_MODEL || 'openai:/gpt-4o-mini' }}
+        PROMPT_VERSION: ${{ vars.PROMPT_VERSION || 'prompts:/asistente_trading@v1_asistente_trading' }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
       run: |

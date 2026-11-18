@@ -45,7 +45,7 @@ load_dotenv()
 PROMPT_VERSION = os.getenv("PROMPT_VERSION") or DEFAULT_PROMPT
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE") or 512)        # deben coincidir con el índice construido
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP") or 50)
-K = int(os.getenv("RETRIEVER_K") or 4)
+K = int(os.getenv("RETRIEVER_K") or 8)  # producción: k = 8 (Parte 3)
 DATASET_PATH = "tests/eval_dataset.json"
 
 # Paralelismo de MLflow. Por defecto evalúa ~10 filas x 10 jueces a la vez, lo que
