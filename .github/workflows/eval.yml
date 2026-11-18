@@ -2,6 +2,12 @@ name: Evaluación RAG
 
 on:
   push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'tests/**'
+      - '.github/workflows/eval.yml'
+  pull_request:
     paths:
       - 'app/**'
       - 'tests/**'
