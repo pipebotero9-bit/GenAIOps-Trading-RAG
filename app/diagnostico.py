@@ -44,7 +44,8 @@ def main():
     print(f"Parámetros: prompt={run.data.params.get('prompt')} k={run.data.params.get('k')} "
           f"chunk={run.data.params.get('chunk_size')}\n")
 
-    traces = mlflow.search_traces(run_id=run_id, return_type="list")
+    traces = mlflow.search_traces(locations=[run.info.experiment_id], run_id=run_id,
+                                return_type="list")
     for i, t in enumerate(traces, 1):
         notas = {}
         razones = {}
