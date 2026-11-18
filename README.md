@@ -1,74 +1,45 @@
 # Chatbot RAG de investigación en trading intradía
 
-Proyecto final del curso de GenAIOps. Partí del repositorio de clase ([darkanita/GenAIOps_Pycon2025](https://github.com/darkanita/GenAIOps_Pycon2025)), que respondía preguntas de Recursos Humanos sobre una empresa ficticia, y lo llevé a un dominio que uso: la investigación detrás de mi estrategia intradía en futuros MNQ (VWAP con bandas de desviación).
+Opero futuros MNQ y estoy construyendo TyrVwap, una estrategia intradía para la sesión de Nueva York: entro cuando el precio cruza el VWAP y dos medias móviles confirman la dirección. Cada decisión de diseño (dónde poner el stop, a qué hora operar, si agregar un filtro más) me llevaba a releer los mismos papers buscando qué se había probado y con qué evidencia.
 
-Mantengo la arquitectura de clase (LangChain, FAISS, MLflow, Streamlit y GitHub Actions); cambié los documentos, los prompts, el dataset de evaluación y los jueces.
+Para el proyecto final de GenAIOps convertí esa búsqueda en un chatbot. Le pregunto, por ejemplo, si un stop por precio destruye valor o si los retrocesos de Fibonacci funcionan, y me responde con el método, la muestra y las cifras del paper, separando un backtest de practicantes de una prueba estadística.
 
-## Por qué este dominio
+Partí del repositorio de clase ([darkanita/GenAIOps_Pycon2025](https://github.com/darkanita/GenAIOps_Pycon2025)), que respondía preguntas de Recursos Humanos, y mantuve su arquitectura: LangChain, FAISS, MLflow, Streamlit y GitHub Actions. Cambié los documentos, los prompts, el dataset de evaluación y los jueces.
 
-Cuando diseño una regla de entrada, un stop o un filtro horario, necesito saber qué se ha probado, con qué método y con qué resultado. Esa información está repartida en papers largos y con calidad de evidencia muy distinta: algunos son backtests de practicantes y otros son pruebas estadísticas formales. El bot me sirve para consultar esa evidencia rápido y sin que me la mezcle.
+## Las preguntas que me interesan
+
+| Pregunta de mi estrategia | Papers que la abordan |
+|---|---|
+| ¿Qué tan sólida es la evidencia detrás de operar con el VWAP? | Zarattini y Aziz (2023) |
+| ¿Opero la primera media hora o la evito? | Gao, Han, Li y Zhou (2015); Howard (2026); Zarattini, Barbon y Aziz (2024) |
+| ¿Mi stop por ATR ayuda o corta las ganancias? | Howard (2026) |
+| ¿Vale la pena agregar retrocesos de Fibonacci? | Batchelor y Ramyar (2006); Tsinaslanidis, Guijarro y Voukelatos (2022); Kempen y Maier-Paape (2016) |
+| ¿Cómo valido si un patrón o un filtro aporta información? | Lo, Mamaysky y Wang (2000) |
 
 ## Documentos
 
-| Tema | Paper | Tipo de evidencia |
-|---|---|---|
-| VWAP | Zarattini y Aziz (2023), *VWAP: The Holy Grail for Day Trading Systems* | Backtest de practicantes |
-| Opening range breakout | Zarattini, Barbon y Aziz (2024), *A Profitable Day Trading Strategy for the U.S. Equity Market* | Backtest de practicantes |
-| Momentum intradía | Gao, Han, Li y Zhou (2015), *Intraday Momentum: The First Half-Hour Return Predicts the Last Half-Hour Return* | Regresiones predictivas |
-| Patrones técnicos | Lo, Mamaysky y Wang (2000), *Foundations of Technical Analysis* | Regresión kernel, bondad de ajuste, Kolmogorov-Smirnov |
-| Tendencias y retrocesos | Kempen y Maier-Paape (2016), *Survey on log-normally distributed market-technical trend data* | Ajuste log-normal, Anderson-Darling |
-| Fibonacci | Batchelor y Ramyar (2006), *Magic Numbers in the Dow* | Bootstrap estacionario por bloques |
-| Fibonacci | Tsinaslanidis, Guijarro y Voukelatos (2022), *Automatic identification and evaluation of Fibonacci retracements* | Regresión logística con bootstrap |
-| Perfil de volumen | Howard (2026), *Intraday Value Area Breakouts: Evidence from E-mini S&P 500 Futures* | Pruebas t con errores agrupados por día, prueba de signos |
-
-Los PDFs están en `data/pdfs/`. Suman 273 páginas y 1.234 fragmentos con `chunk_size=512`.
-
-Elegí a propósito papers que se contradicen o que dan evidencia negativa (los tres de Fibonacci concluyen que los niveles no se distinguen del azar), porque eso permite evaluar si el bot reporta lo que dice el documento y no lo que el usuario quiere oír.
-
-## Cómo ejecutarlo
-
-Desde la raíz del repositorio, en GitHub Codespaces o en local con Python 3.10+:
-
-```bash
-pip install -r requirements.txt
-cp .env.example .env        # LLM_PROVIDER=groq y GROQ_API_KEY
-python -m app.prompt_registry
-python -c "from app.rag_pipeline import save_vectorstore; save_vectorstore()"
-streamlit run app/main_interface.py
-```
-
-Para evaluar y revisar resultados:
-
-```bash
-python app/run_eval.py
-mlflow ui --port 5000
-pytest tests/test_run_eval.py -v
-```
-
-En un Codespace de 2 núcleos conviene correr Streamlit, MLflow y la evaluación por separado; juntos agotan la memoria.
-
-## Estructura
-
-| Archivo | Función |
+| Paper | Tipo de evidencia |
 |---|---|
-| `app/rag_pipeline.py` | Carga los PDFs, crea el índice FAISS y arma la cadena RAG |
-| `app/llm_provider.py` | Selección del LLM y de los embeddings según `.env` |
-| `app/prompts/` | Versiones del prompt (`v1_asistente_trading`, `v2_resumido_directo`) |
-| `app/prompt_registry.py` | Registro de prompts en MLflow y promoción del alias `@production` |
-| `app/main_interface.py`, `app/chat_ui.py` | Interfaz de chat en Streamlit |
-| `app/run_eval.py` | Evaluación con jueces LLM y scorers propios |
-| `app/dashboard.py` | Comparación de configuraciones evaluadas |
-| `tests/eval_dataset.json` | Preguntas de evaluación con respuesta esperada, tipo y fuente |
-| `tests/test_run_eval.py` | Umbrales mínimos de calidad |
-| `.github/workflows/eval.yml` | Indexa, evalúa y aplica el umbral en cada push |
+| Zarattini y Aziz (2023), *VWAP: The Holy Grail for Day Trading Systems* | Backtest de practicantes |
+| Zarattini, Barbon y Aziz (2024), *A Profitable Day Trading Strategy for the U.S. Equity Market* | Backtest de practicantes |
+| Gao, Han, Li y Zhou (2015), *Intraday Momentum: The First Half-Hour Return Predicts the Last Half-Hour Return* | Regresiones predictivas |
+| Lo, Mamaysky y Wang (2000), *Foundations of Technical Analysis* | Regresión kernel, bondad de ajuste, Kolmogorov-Smirnov |
+| Kempen y Maier-Paape (2016), *Survey on log-normally distributed market-technical trend data* | Ajuste log-normal, Anderson-Darling |
+| Batchelor y Ramyar (2006), *Magic Numbers in the Dow* | Bootstrap estacionario por bloques |
+| Tsinaslanidis, Guijarro y Voukelatos (2022), *Automatic identification and evaluation of Fibonacci retracements* | Regresión logística con bootstrap |
+| Howard (2026), *Intraday Value Area Breakouts: Evidence from E-mini S&P 500 Futures* | Pruebas t con errores agrupados por día, prueba de signos |
+
+Están en `data/pdfs/`: 273 páginas que se convierten en 1.234 fragmentos.
+
+Incluí a propósito papers con evidencia negativa (los tres de Fibonacci concluyen que esos niveles no se distinguen del azar). Así puedo evaluar si el bot reporta lo que dice el documento o lo que yo quisiera oír.
 
 ## Estado
 
 | Parte del desafío | Estado |
 |---|---|
 | 1. Cambio de dominio | Listo |
-| 2. Dataset de evaluación | 19 preguntas listas (9 directas, 4 multi-documento, 3 sin respuesta, 3 adversarias); falta la primera evaluación |
-| 3. Experimentos | Pendiente |
+| 2. Dataset de evaluación | 19 preguntas (9 directas, 4 multi-documento, 3 sin respuesta, 3 adversarias). Primera evaluación: correctness 0,63, retrieval relevance 0,24, safety 1,00 |
+| 3. Experimentos | 4 configuraciones evaluadas; la mejor es k = 8 (correctness 0,79). Falta el diagnóstico de 5 fallos |
 | 4. Evaluadores propios | Pendiente |
 | 5. Confianza en el juez | Pendiente |
 | 6. Producción y CI | Pendiente |
@@ -78,8 +49,8 @@ Los resultados y las decisiones van en `INFORME.md`.
 
 ## Limitaciones que ya identifiqué
 
-- Las tablas de Lo, Mamaysky y Wang salen ilegibles porque el PDF es un escaneo, y las tablas de Kempen y Maier-Paape son imágenes sin texto.
-- El LLM recibe el texto de cada fragmento pero no el nombre del paper, así que en preguntas que comparan autores puede atribuir mal.
-- Ningún paper usa MNQ en barras de ticks; el bot informa la evidencia, no la valida para mi estrategia.
+- Las tablas de Lo, Mamaysky y Wang salen ilegibles porque el PDF es un escaneo, y las de Kempen y Maier-Paape son imágenes sin texto.
+- El modelo recibe el texto de cada fragmento pero no el nombre del paper, así que al comparar autores puede atribuir mal.
+- Ningún paper usa MNQ ni barras de ticks: el bot me dice qué se ha probado, pero la validación para mi estrategia la tengo que hacer con mis propios datos.
 
 Juan Felipe Botero · Finanzas, EAFIT
