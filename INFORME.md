@@ -2,35 +2,40 @@
 
 Juan Felipe Botero · Finanzas, EAFIT · GenAIOps
 
-Todas las cifras salen del experimento `rag_evaluation` en `mlflow.db`: 19 preguntas (9 directas, 4 multi-documento, 3 sin respuesta y 3 adversarias), bot `openai/gpt-oss-120b` en Groq y juez `openai:/gpt-4o-mini`. Las cifras por tipo, latencia y tokens las calculé con `app/resumen_informe.py` y el diagnóstico con `app/diagnostico.py`.
+## Introducción
+
+Opero futuros del Nasdaq y estoy construyendo una estrategia intradía basada en el VWAP. Buena parte de sus decisiones de diseño (el filtro de entrada, el stop, la ventana horaria) dependen de lo que ya está probado en la literatura académica, y un modelo de lenguaje que responde de memoria no sirve para eso: en este dominio una cifra inventada es peor que no tener respuesta.
+
+Construí un asistente RAG que responde solo con evidencia de 8 papers sobre VWAP, *opening range breakout*, momentum intradía, Fibonacci y perfil de volumen (273 páginas divididas en 1.234 fragmentos). El sistema recupera fragmentos con FAISS y *embeddings* multilingües de FastEmbed y genera la respuesta con `gpt-oss-120b` en Groq.
+
+Lo evalué con un dataset de 19 preguntas verificadas contra los PDFs, de cuatro tipos: 9 directas, 4 multi-documento, 3 sin respuesta y 3 adversarias. Las calificaciones las hizo un juez LLM (`gpt-4o-mini`) y todo quedó registrado en el experimento `rag_evaluation` de MLflow. Cada experimento cambia un solo factor respecto a la versión base, para poder atribuir cada diferencia a su causa. Las secciones responden las preguntas del desafío en orden.
 
 ## 1. Configuración en producción
 
-| Configuración | correctness | relevance | groundedness | retrieval relevance | tono | idioma |
-|---|---|---|---|---|---|---|
-| Base: prompt v1, k = 4, chunk 512 | 0,63 | 0,53 | 0,32 | 0,24 | 0,58 | 0,95 |
-| Prompt v2 (corto) | 0,63 | 0,42 | 0,42 | 0,24 | 0,21 | 0,68 |
-| k = 8 | **0,79** | 0,68 | 0,47 | 0,21 | 0,58 | 0,84 |
-| Chunk 256 | 0,53 | 0,58 | 0,26 | 0,20 | 0,53 | 1,00 |
-| k = 8 (repetición con 10 jueces) | 0,74 | 0,68 | 0,42 | 0,20 | 0,53 | 0,89 |
-| **k = 8 + nombre del paper en el contexto** | **0,79** | **0,74** | 0,42 | 0,21 | **0,84** | **1,00** |
+Mi hipótesis inicial era que el bot fallaba más por lo que recupera que por cómo redacta. Para comprobarla partí de una base (prompt v1, k = 4, fragmentos de 512 caracteres) y varié un factor a la vez: el prompt, el número de fragmentos recuperados (k), el tamaño del fragmento y si el modelo ve el nombre del paper de cada fragmento.
 
-Safety fue 1,00 en todas. Llevé a producción **prompt v1, k = 8 y el nombre del paper antes de cada fragmento**. Frente a la base, correctness pasó de 0,63 a 0,79, relevance de 0,53 a 0,74, tono de 0,58 a 0,84 y mi juez `cita_evidencia` de 0,74 a 0,95.
+**Tabla 1.** Resultados por configuración (promedio sobre 19 preguntas; 0,05 equivale a una pregunta)
 
-Lo que explica cada cambio:
+| Configuración | correctness | relevance | tono | idioma | cita_evidencia |
+|---|---|---|---|---|---|
+| Base: v1, k = 4, chunk 512 | 0,63 | 0,53 | 0,58 | 0,95 | – |
+| Prompt v2 | 0,63 | 0,42 | 0,21 | 0,68 | – |
+| Chunk 256 | 0,53 | 0,58 | 0,53 | 1,00 | – |
+| k = 8 (dos corridas) | 0,79 / 0,74 | 0,68 / 0,68 | 0,58 / 0,53 | 0,84 / 0,89 | – / 0,74 |
+| **k = 8 + nombre del paper** | **0,79** | **0,74** | **0,84** | **1,00** | **0,95** |
 
-- **k = 8** fue la mejora principal. El problema era de búsqueda: con 4 fragmentos el correcto muchas veces no entraba. Con 8 entra más seguido, aunque cada fragmento extra sea menos relevante (por eso retrieval relevance baja un poco).
-- **El prompt v2** no pide responder en español ni en tono profesional, y el modelo mezcló idiomas (0,68) y bajó el tono a 0,21.
-- **Los fragmentos de 256** separan la cifra del método que la explica, y correctness cayó a 0,53.
-- **El nombre del paper** nació del diagnóstico (sección 2): el modelo atribuía hallazgos de Howard a Zarattini y Aziz porque no sabía de qué documento venía cada fragmento.
+![Corridas de evaluación en MLflow](docs/capturas/01_mlflow_configuraciones.png)
+*Figura 1. Corridas de evaluación en MLflow, de la más reciente (arriba) a la más antigua. Las dos filas `k4` con prompt v1 son la base (0,63, abajo) y los fragmentos de 256 (0,53). Safety fue 1,00 en todas.*
 
-Una advertencia: la misma configuración k = 8 dio 0,79 y 0,74 en dos corridas. Esa diferencia es una sola pregunta y viene del juez, así que no atribuyo a la fuente en contexto la mejora en correctness; sí las de tono (+0,31) y `cita_evidencia` (+0,21), que son grandes.
+**Recuperar 8 fragmentos en lugar de 4 fue el único cambio que mejoró la exactitud.** Correctness pasó de 0,63 a 0,79: tres preguntas más bien respondidas de 19. Como el juez no es determinista, revisé si el efecto se sostiene: sumando las dos corridas locales y las cuatro del CI, k = 8 promedió 0,755 en seis corridas, siempre por encima de la base. La mejora confirma la hipótesis. Con k = 4 el fragmento que contenía la respuesta muchas veces no entraba al contexto; con k = 8 entra más seguido, aunque cada fragmento adicional es menos pertinente.
 
-![MLflow: las corridas de evaluación del experimento rag_evaluation; arriba, la de producción (k = 8 + fuente).](docs/capturas/01_mlflow_evaluaciones.jpg)
-*MLflow: las corridas de evaluación del experimento rag_evaluation; arriba, la de producción (k = 8 + fuente).*
+Los otros factores no mejoraron la exactitud, pero muestran qué controla cada parte del sistema:
 
-![Dashboard (vista Métricas): comparación por configuración leída de MLflow.](docs/capturas/05_dashboard_metricas.jpg)
-*Dashboard (vista Métricas): comparación por configuración leída de MLflow.*
+- **Fragmentos de 256** bajaron correctness a 0,53. Separan la cifra del método que la explica, y el modelo recibe números sin contexto.
+- **El prompt v2** dejó correctness igual, pero el idioma cayó a 0,68 y el tono a 0,21. El prompt no cambia lo que el bot sabe sino cómo lo dice: al quitar la instrucción de responder en español y en tono profesional, dejó de hacerlo.
+- **El nombre del paper** no movió correctness más allá del ruido (0,74 frente a 0,79 en dos corridas idénticas es una sola pregunta). Sí subió el tono de 0,53 a 0,84 y `cita_evidencia` de 0,74 a 0,95. Lo agregué porque el diagnóstico de la sección 2 mostró que el modelo atribuía a Zarattini y Aziz reglas que eran de Howard: sin la fuente no sabía de qué paper venía cada fragmento.
+
+**Resultado.** Llevé a producción el prompt v1 con k = 8 y el nombre del paper en cada fragmento. Frente a la base responde correctamente tres preguntas más de 19, y casi todas sus respuestas citan cifra y método. El cambio que explica la mejora en exactitud es k = 8; el nombre del paper mejora la forma y la trazabilidad de la respuesta, no su exactitud.
 
 ## 2. Qué preguntas cuestan más y por qué
 
