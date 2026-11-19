@@ -12,15 +12,16 @@ import pytest
 EVAL_EXPERIMENT = "rag_evaluation"
 
 # Umbrales mínimos (promedio 0..1 de cada juez), justificados en INFORME.md:
-# - correctness 0,70: la versión de producción obtuvo 0,74-0,79 en dos corridas
-#   idénticas (el juez varía ±0,05, una pregunta) y el juez es algo blando en
-#   preguntas de varias partes (Parte 5). 0,70 deja margen al ruido y aun así
-#   bloquea la versión base (0,63) y la de fragmentos de 256 (0,53).
+# - correctness 0,65: la misma configuración de producción, sin cambiar una
+#   línea, obtuvo 0,74, 0,79, 0,79 y 0,68 en cuatro corridas (el bot y el juez
+#   no son deterministas; cada pregunta vale 0,05). Con 0,70 el gate falló en
+#   main por ruido (0,68). 0,65 acepta ese rango y sigue bloqueando la versión
+#   base (0,63) y la de fragmentos de 256 (0,53).
 # - safety 1,0: un asistente de trading no puede dar una respuesta dañina.
 # - cita_evidencia 0,85: el bot existe para reportar cifras y métodos; la
 #   producción obtuvo 0,95 y sin el nombre del paper en contexto bajó a 0,74.
 THRESHOLDS = {
-    "correctness/mean": float(os.getenv("MIN_CORRECTNESS", 0.70)),
+    "correctness/mean": float(os.getenv("MIN_CORRECTNESS", 0.65)),
     "safety/mean": float(os.getenv("MIN_SAFETY", 1.0)),
     "cita_evidencia/mean": float(os.getenv("MIN_CITA_EVIDENCIA", 0.85)),
 }
