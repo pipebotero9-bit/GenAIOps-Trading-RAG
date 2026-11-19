@@ -42,15 +42,15 @@ Incluí a propósito papers con evidencia negativa (los tres de Fibonacci conclu
 | 3. Experimentos | 5 configuraciones y 5 fallos diagnosticados. La mejor: k = 8 con el nombre del paper en cada fragmento (correctness 0,79, tono 0,84) |
 | 4. Evaluadores propios | `cita_evidencia` (código), `calibra_evidencia` (juez LLM) y `sin_asesoria_personal` (guía) |
 | 5. Confianza en el juez | Califiqué 10 respuestas a mano: gpt-4o-mini y gpt-4o coinciden conmigo en 9 de 10 (90 %). Mantengo gpt-4o-mini |
-| 6. Producción y CI | Pendiente |
-| 7. Informe | Pendiente |
+| 6. Producción y CI | v1 en producción con k = 8 y nombre del paper. CI verde en `main` (correctness 0,74) y rojo en el PR con el prompt saboteado (0,47) |
+| 7. Informe | Listo en `INFORME.md` |
 
 Los resultados y las decisiones van en `INFORME.md`.
 
 ## Limitaciones que ya identifiqué
 
 - Las tablas de Lo, Mamaysky y Wang salen ilegibles porque el PDF es un escaneo, y las de Kempen y Maier-Paape son imágenes sin texto.
-- El modelo recibe el texto de cada fragmento pero no el nombre del paper, así que al comparar autores puede atribuir mal.
+- El buscador trae pocos fragmentos útiles (retrieval relevance 0,23 con k = 8): es la causa de la mayoría de los errores.
 - Ningún paper usa MNQ ni barras de ticks: el bot me dice qué se ha probado, pero la validación para mi estrategia la tengo que hacer con mis propios datos.
 
 Juan Felipe Botero · Finanzas, EAFIT

@@ -87,11 +87,22 @@ Promoví el prompt v1 a `@production` y dejé k = 8 y el nombre del paper como v
 
 | Juez | Umbral | Justificación |
 |---|---|---|
-| correctness | 0,70 | Producción obtuvo 0,74-0,79 y el juez varía ±0,05; 0,70 tolera ese ruido y aun así bloquea la base (0,63) y el chunk 256 (0,53) |
+| correctness | 0,65 | La misma configuración, sin cambiar una línea, dio 0,74 · 0,79 · 0,79 · 0,68 en cuatro corridas. Cada pregunta vale 0,05, así que el rango es de dos preguntas. 0,65 acepta ese ruido y sigue bloqueando la base (0,63) y el chunk 256 (0,53) |
 | safety | 1,00 | Un asistente de trading no puede dar ninguna respuesta dañina |
-| cita_evidencia | 0,85 | Producción obtuvo 0,95; sin el nombre del paper bajó a 0,74 |
+| cita_evidencia | 0,85 | Producción obtuvo 0,95-1,00; sin el nombre del paper bajó a 0,74 |
 
-Resultado del CI: _pendiente (se completa al correr `eval.yml` en `main` y en el PR con el prompt saboteado)._
+Empecé con correctness en 0,70. El gate falló en `main` con 0,68 justo después de que el mismo código diera 0,79 en el PR. Ni el bot ni el juez son deterministas aunque la temperatura esté en 0, así que un umbral pegado al promedio rechaza la versión buena por azar. Lo bajé a 0,65 con esa evidencia y no con la intención de pasar.
+
+Antes de eso el CI falló por otra razón: los 9 jueces LLM fallaron en 19 de 19 preguntas y solo se registró `cita_evidencia`. El secret `OPENAI_API_KEY` tenía un salto de línea pegado. Agregué al workflow un diagnóstico de la key (sin mostrarla), una limpieza de espacios y una llamada de prueba al juez que falla en segundos en lugar de después de 17 minutos de evaluación.
+
+**Resultado del CI**
+
+| Corrida | correctness | safety | cita_evidencia | idioma | tono | Gate |
+|---|---|---|---|---|---|---|
+| `main` con producción | 0,74 | 1,00 | 1,00 | 0,95 | 0,79 | Verde |
+| PR #15 con prompt saboteado | 0,47 | 1,00 | 0,00 | 0,00 | 0,21 | Rojo |
+
+El prompt saboteado pide responder en inglés, en una frase, sin cifras ni métodos y adivinando si no sabe. El gate lo bloqueó por dos jueces: correctness (0,47 < 0,65) y cita_evidencia (0,00 < 0,85). Safety siguió en 1,00, lo que muestra que ese juez solo detecta contenido dañino y no una respuesta inútil; por eso no basta con él. El PR quedó abierto sin fusionar.
 
 ## 7. Con una semana más
 
