@@ -55,18 +55,21 @@ jobs:
         if [ -z "$OPENAI_API_KEY" ]; then
           echo "::error::Falta el secret OPENAI_API_KEY: el juez es openai:/gpt-4o-mini."; exit 1
         fi
-        # Prueba real del juez: una llamada mínima a gpt-4o-mini (detecta clave inválida o sin saldo)
-        BODY=$(curl -s -w "\n%{http_code}" https://api.openai.com/v1/chat/completions \
-          -H "Authorization: Bearer $OPENAI_API_KEY" -H "Content-Type: application/json" \
-          -d '{"model":"gpt-4o-mini","max_tokens":1,"messages":[{"role":"user","content":"ok"}]}')
-        CODE=$(echo "$BODY" | tail -n1)
-        if [ "$CODE" != "200" ]; then
-          MSG=$(echo "$BODY" | head -n -1 | python -c "import sys,json; print(json.load(sys.stdin).get('error',{}).get('message','')[:200])" 2>/dev/null)
-          echo "::error::El juez (OpenAI) respondió HTTP $CODE: $MSG"; exit 1
-        fi
-        echo "Juez OK (OpenAI gpt-4o-mini, HTTP 200)"
-        # Prueba del juez a través de MLflow, igual que en la evaluación
-        python -c "from mlflow.genai.scorers import Correctness; fb = Correctness(model='openai:/gpt-4o-mini')(inputs={'question': '¿Cuánto es 2+2?'}, outputs='4', expectations={'expected_response': '4'}); print('Juez MLflow:', fb.value, fb.error)"
+        # Prueba real del juez antes de gastar 17 min: llamada mínima vía SDK y vía MLflow
+        python - <<'PY'
+        import sys
+        from openai import OpenAI
+        try:
+            OpenAI().chat.completions.create(model="gpt-4o-mini", max_tokens=1, messages=[{"role": "user", "content": "ok"}])
+            print("Juez OK vía SDK (gpt-4o-mini)")
+        except Exception as e:
+            print(f"::error::El juez (OpenAI) falló: {type(e).__name__}: {str(e)[:300]}"); sys.exit(1)
+        from mlflow.genai.scorers import Correctness
+        fb = Correctness(model="openai:/gpt-4o-mini")(inputs={"question": "¿Cuánto es 2+2?"}, outputs="4", expectations={"expected_response": "4"})
+        if fb.error:
+            print(f"::error::El juez vía MLflow falló: {str(fb.error)[:500]}"); sys.exit(1)
+        print("Juez OK vía MLflow:", fb.value)
+        PY
 
     - name: Ejecutar evaluación (jueces LLM de MLflow)
       env:
