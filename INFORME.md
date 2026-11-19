@@ -26,6 +26,12 @@ Lo que explica cada cambio:
 
 Una advertencia: la misma configuración k = 8 dio 0,79 y 0,74 en dos corridas. Esa diferencia es una sola pregunta y viene del juez, así que no atribuyo a la fuente en contexto la mejora en correctness; sí las de tono (+0,31) y `cita_evidencia` (+0,21), que son grandes.
 
+![MLflow: las corridas de evaluación del experimento rag_evaluation; arriba, la de producción (k = 8 + fuente).](docs/capturas/01_mlflow_evaluaciones.jpg)
+*MLflow: las corridas de evaluación del experimento rag_evaluation; arriba, la de producción (k = 8 + fuente).*
+
+![Dashboard (vista Métricas): comparación por configuración leída de MLflow.](docs/capturas/05_dashboard_metricas.jpg)
+*Dashboard (vista Métricas): comparación por configuración leída de MLflow.*
+
 ## 2. Qué preguntas cuestan más y por qué
 
 | Tipo | Base | Producción |
@@ -46,6 +52,12 @@ Las **multi-documento** son las más difíciles: la búsqueda trae fragmentos de
 | Operar la primera media hora (base) | Recuperación | Con k = 4 no llegó nada de Gao; con k = 8 se corrigió |
 
 Falla más en **recuperación** (4 de 5). El juez de retrieval relevance se mantiene cerca de 0,2 porque califica cada fragmento contra toda la pregunta: en una pregunta de dos papers, un fragmento correcto de uno solo cuenta como irrelevante. Lo tomo como una limitación del juez para este tipo de pregunta.
+
+![Dashboard (vista Chatbot): respuesta a una pregunta directa con cifras del backtest y la aclaración de que no es una prueba estadística.](docs/capturas/04_dashboard_chatbot.jpg)
+*Dashboard (vista Chatbot): respuesta a una pregunta directa con cifras del backtest y la aclaración de que no es una prueba estadística.*
+
+![MLflow: traza de una pregunta multi-documento con las calificaciones de los jueces. La precisión del buscador es 0,125: solo 1 de 8 fragmentos era relevante.](docs/capturas/03_mlflow_traza_jueces.jpg)
+*MLflow: traza de una pregunta multi-documento con las calificaciones de los jueces. La precisión del buscador es 0,125: solo 1 de 8 fragmentos era relevante.*
 
 ## 3. Preguntas sin respuesta y adversarias
 
@@ -81,6 +93,9 @@ Empatan, pero se equivocan distinto: `gpt-4o-mini` es blando con respuestas inco
 
 Producción usa 1,8 veces los tokens de la base y tarda 0,4 s más por pregunta. Vale la pena: sube correctness de 0,63 a 0,79 y casi todas las respuestas pasan a citar evidencia, que es para lo que existe el bot. El costo que sí pesa es la cuota gratuita de Groq: cada evaluación con k = 8 gasta unos 40.000 tokens del bot, una quinta parte del límite diario.
 
+![MLflow: corrida de producción con latencia y tokens por pregunta (38.311 tokens en total).](docs/capturas/02_mlflow_run_produccion.jpg)
+*MLflow: corrida de producción con latencia y tokens por pregunta (38.311 tokens en total).*
+
 ## 6. Producción y quality gate
 
 Promoví el prompt v1 a `@production` y dejé k = 8 y el nombre del paper como valores por defecto de la app y de la evaluación. En CI el prompt se toma por el alias del archivo, `prompts:/asistente_trading@v1_asistente_trading`. Los umbrales del gate en `tests/test_run_eval.py` son:
@@ -103,6 +118,12 @@ Antes de eso el CI falló por otra razón: los 9 jueces LLM fallaron en 19 de 19
 | PR #15 con prompt saboteado | 0,47 | 1,00 | 0,00 | 0,00 | 0,21 | Rojo |
 
 El prompt saboteado pide responder en inglés, en una frase, sin cifras ni métodos y adivinando si no sabe. El gate lo bloqueó por dos jueces: correctness (0,47 < 0,65) y cita_evidencia (0,00 < 0,85). Safety siguió en 1,00, lo que muestra que ese juez solo detecta contenido dañino y no una respuesta inútil; por eso no basta con él. El PR quedó abierto sin fusionar.
+
+![GitHub Actions: main en verde y el PR #15 con el prompt saboteado en rojo.](docs/capturas/06_actions_verde_y_rojo.jpg)
+*GitHub Actions: main en verde y el PR #15 con el prompt saboteado en rojo.*
+
+![Quality gate del PR #15: falla correctness (0,47 < 0,65) y cita_evidencia (0,00 < 0,85).](docs/capturas/07_actions_gate_rojo.jpg)
+*Quality gate del PR #15: falla correctness (0,47 < 0,65) y cita_evidencia (0,00 < 0,85).*
 
 ## 7. Con una semana más
 
