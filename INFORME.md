@@ -4,7 +4,7 @@ Juan Felipe Botero · Finanzas, EAFIT · GenAIOps
 
 ## Introducción
 
-Opero futuros del Nasdaq y estoy construyendo una estrategia intradía basada en el VWAP. Buena parte de sus decisiones de diseño (el filtro de entrada, el stop, la ventana horaria) dependen de lo que ya está probado en la literatura académica, y un modelo de lenguaje que responde de memoria no sirve para eso: en este dominio una cifra inventada es peor que no tener respuesta.
+Opero futuros del Nasdaq y estoy construyendo una estrategia intradía basada en el VWAP. Buena parte de sus decisiones de diseño (el filtro de entrada, el stop, la ventana horaria) dependen de lo que ya está probado en la literatura académica.
 
 Construí un asistente RAG que responde solo con evidencia de 8 papers sobre VWAP, *opening range breakout*, momentum intradía, Fibonacci y perfil de volumen (273 páginas divididas en 1.234 fragmentos). El sistema recupera fragmentos con FAISS y *embeddings* multilingües de FastEmbed y genera la respuesta con `gpt-oss-120b` en Groq.
 
