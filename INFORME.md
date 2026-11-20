@@ -1,12 +1,14 @@
 # Informe final: chatbot RAG de investigación en trading intradía
 
-Juan Felipe Botero · Finanzas, EAFIT · GenAIOps
+Juan Felipe Botero · Finanzas,
+Experiencias en Analítica  EAFIT 
+GenAIOps
 
 ## Introducción
 
-Mi interés principal dentro de Finanzas es el trading algorítmico, por lo que elegí Ciencia de Datos como línea de énfasis de mi carrera. Actualmente opero futuros del Nasdaq y desarrollo una estrategia intradía automatizada basada en el VWAP, un indicador técnico utilizado en el análisis de precios y volumen. La estrategia busca identificar una ventaja estadística (*edge*) a partir de reglas cuantitativas, como las condiciones de entrada, la ubicación del stop loss y los horarios de operación. Estas decisiones también han sido estudiadas en la literatura académica. Sin embargo, consultar y relacionar los resultados de distintos papers es dificil. Además, un chatbot convencional puede generar cifras o conclusiones que no están respaldadas por estudios específicos.
+Mi interés principal dentro de Finanzas es el trading algorítmico, utilizo la ciencia de Datos como línea de énfasis de mi carrera. Actualmente opero futuros del Nasdaq y desarrollo una estrategia automatizada basada en indicadores técnicos utilizando análisis de precios y volumen. La estrategia busca identificar una ventaja estadística (*edge*) a partir de reglas cuantitativas. Estas decisiones se estudian en la literatura académica. Sin embargo, relacionar los resultados de distintos papers es dificil. Además, un chatbot convencional puede generar cifras que no están respaldadas por estudios específicos.
 
-Por esa razón construí un asistente RAG (*retrieval-augmented generation*). En este tipo de sistema el modelo no responde de memoria: primero se buscan en los documentos los fragmentos de texto más relacionados con la pregunta y luego el modelo redacta la respuesta a partir de ellos. Usé 8 papers sobre VWAP, *opening range breakout*, momentum intradía, Fibonacci y perfil de volumen, con un total de 273 páginas. Para que el buscador pueda trabajar con ellos, los dividí en 1.234 *chunks*, que son fragmentos de texto de tamaño fijo. Las respuestas las redacta `gpt-oss-120b`, al que accedo a través de Groq.
+Por esa razón construí un asistente RAG (*retrieval-augmented generation*). En este tipo de sistema el modelo no responde de memoria: primero se buscan en los documentos los fragmentos de texto más relacionados con la pregunta y luego el modelo redacta la respuesta a partir de ellos. Usé 8 papers sobre VWAP, ruptura del rango de precios, Fibonacci y perfil de volumen, con un total de 273 páginas. Para que el buscador pueda trabajar con ellos, los dividí en 1.234 *chunks*. Las respuestas las redacta `gpt-oss-120b`, accedo a través de Groq.
 
 Para evaluar el asistente preparé 19 preguntas cuya respuesta verifiqué en los PDFs. Las organicé en cuatro tipos, porque cada uno mide un comportamiento distinto:
 
@@ -25,7 +27,7 @@ El comportamiento del asistente depende principalmente de tres elementos:
 - **El chunk size**, el tamaño máximo de cada fragmento.
 - **El top-k**, la cantidad de chunks que el buscador entrega al modelo por pregunta.
 
-La versión base usaba el prompt v1, chunks de 512 caracteres y top-k = 4. Con esa configuración respondió bien 12 de las 19 preguntas (correctness de 0,63). Al revisar las respuestas incorrectas encontré que, en varias, el chunk con la información necesaria no estaba entre los que había recibido el modelo. Por eso supuse que el principal problema estaba en la búsqueda y no en la redacción.
+La versión base usaba el prompt v1, chunks de 512 caracteres y top-k = 4. Con esa configuración respondió bien 12 de las 19 preguntas (correctness de 0,63). Al revisar las respuestas incorrectas encontré que, en varias, el chunk con la información necesaria no estaba entre los que había recibido el modelo. Por eso el principal problema estaba en la búsqueda y no en la redacción.
 
 Para comprobarlo probé cuatro cambios por separado. Al modificar un solo elemento en cada prueba, podía atribuir la diferencia en los resultados a ese cambio.
 
@@ -46,9 +48,7 @@ Para comprobarlo probé cuatro cambios por separado. Al modificar un solo elemen
 
 Subir el top-k de 4 a 8 fue el cambio que más mejoró la exactitud. El buscador ordena los 1.234 chunks según su similitud con la pregunta y entrega los *k* primeros, así que con top-k = 4 el chunk con la respuesta quedaba por fuera cuando estaba quinto o sexto. Con 8, la exactitud pasó de 0,63 a 0,79 (de 12 a 15 respuestas correctas). Como el modelo y el prompt no cambiaron, atribuyo la mejora a la búsqueda. Aunque la misma configuración dio 0,79 y 0,74 en dos corridas, las seis corridas con top-k = 8 promediaron 0,755 y todas superaron la base. El costo es más tokens por pregunta y algunos chunks menos útiles: *retrieval relevance* bajó de 0,24 a 0,21.
 
-Los demás cambios no mejoraron la exactitud. Con chunks de 256 caracteres bajó a 0,53, porque la cifra y su explicación quedaban en chunks distintos. El prompt v2, sin instrucciones de rol, idioma ni tono, mantuvo 0,63, pero el modelo mezcló idiomas (0,68) y el tono cayó a 0,21. Por último, al revisar los errores vi que el modelo atribuía a Zarattini y Aziz reglas de Howard, porque los chunks no indicaban su origen. Agregar el nombre del paper no cambió la exactitud, pero subió el tono a 0,84 y `cita_evidencia` de 0,74 a 0,95.
-
-Llevé a producción el prompt v1 con top-k = 8 y el nombre del paper en cada chunk. Frente a la base, la exactitud subió de 0,63 a 0,79, la pertinencia de 0,53 a 0,74 y el tono de 0,58 a 0,84, todas las respuestas quedaron en español y safety se mantuvo en 1,00. El límite de la versión base estaba en la información que llegaba al modelo, más que en las instrucciones.
+Los demás cambios no mejoraron la exactitud.
 
 ## 2. Tipos de pregunta y origen de los errores
 
