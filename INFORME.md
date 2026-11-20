@@ -50,32 +50,33 @@ Los demás cambios no mejoraron la exactitud. Con chunks de 256 caracteres bajó
 
 Llevé a producción el prompt v1 con top-k = 8 y el nombre del paper en cada chunk. Frente a la base, la exactitud subió de 0,63 a 0,79, la pertinencia de 0,53 a 0,74 y el tono de 0,58 a 0,84, todas las respuestas quedaron en español y safety se mantuvo en 1,00. El límite de la versión base estaba en la información que llegaba al modelo, más que en las instrucciones.
 
-## 2. Qué preguntas cuestan más y por qué
+## 2. Tipos de pregunta y origen de los errores
+
+Para saber dónde falla el asistente separé los resultados por tipo de pregunta y revisé en MLflow las trazas de las respuestas incorrectas. Una traza muestra qué chunks recuperó el buscador y qué escribió el modelo con ellos. Con eso pude separar los errores en dos tipos: de recuperación, cuando la información no llegó al modelo, y de generación, cuando llegó pero el modelo la usó mal.
+
+**Tabla 2.** Respuestas correctas por tipo de pregunta
 
 | Tipo | Base | Producción |
 |---|---|---|
 | Directa | 6/9 | 8/9 |
-| Multi-documento | **0/4** | **1/4** |
+| Multi-documento | 0/4 | 1/4 |
 | Sin respuesta | 3/3 | 3/3 |
 | Adversaria | 3/3 | 3/3 |
 
-Las **multi-documento** son las más difíciles: la búsqueda trae fragmentos de un solo paper y el bot no puede comparar. Clasifiqué 5 fallos revisando sus trazas:
+**Tabla 3.** Diagnóstico de los cinco errores
 
-| Pregunta | Tipo de fallo | Evidencia en la traza |
+| Pregunta | Origen | Qué mostró la traza |
 |---|---|---|
-| Reglas de entrada y stop del VWAP | Recuperación y generación | 6 de 8 fragmentos eran de Howard y ninguno de la página 8 del paper VWAP; el bot atribuyó a Zarattini el área de valor y las salidas por tiempo de Howard |
-| Gao frente a Zarattini y Aziz | Recuperación | Ningún fragmento del paper VWAP; el bot lo admitió |
-| ¿Coinciden Kempen y Tsinaslanidis? | Recuperación | 7 de 8 fragmentos de Tsinaslanidis; el de Kempen no traía la conclusión |
-| Métodos de Lo y de Batchelor | Generación | Inventó "bootstrap y Monte Carlo implícitos" en Lo y omitió a Batchelor, aunque un fragmento suyo llegó |
-| Operar la primera media hora (base) | Recuperación | Con k = 4 no llegó nada de Gao; con k = 8 se corrigió |
+| Reglas de entrada y stop del VWAP | Recuperación y generación | 6 de 8 chunks eran de Howard; el modelo atribuyó sus reglas a Zarattini |
+| Gao frente a Zarattini y Aziz | Recuperación | Ningún chunk del paper VWAP |
+| Kempen frente a Tsinaslanidis | Recuperación | 7 de 8 chunks eran de Tsinaslanidis |
+| Métodos de Lo y de Batchelor | Generación | Inventó métodos para Lo y omitió a Batchelor, aunque recibió su chunk |
+| Operar la primera media hora (base) | Recuperación | Con top-k = 4 no llegó nada de Gao; con 8 se corrigió |
 
-Falla más en **recuperación** (4 de 5). El juez de retrieval relevance se mantiene cerca de 0,2 porque califica cada fragmento contra toda la pregunta: en una pregunta de dos papers, un fragmento correcto de uno solo cuenta como irrelevante. Lo tomo como una limitación del juez para este tipo de pregunta.
+![Traza de una pregunta multi-documento en MLflow](docs/capturas/03_mlflow_traza_jueces.jpg)
+*Figura 2. Traza de la pregunta sobre los métodos de Lo, Mamaysky y Wang y de Batchelor y Ramyar, con las calificaciones de los jueces. La precisión de la recuperación es 0,125: solo 1 de los 8 chunks era relevante.*
 
-![Dashboard (vista Chatbot): respuesta a una pregunta directa con cifras del backtest y la aclaración de que no es una prueba estadística.](docs/capturas/04_dashboard_chatbot.jpg)
-*Dashboard (vista Chatbot): respuesta a una pregunta directa con cifras del backtest y la aclaración de que no es una prueba estadística.*
-
-![MLflow: traza de una pregunta multi-documento con las calificaciones de los jueces. La precisión del buscador es 0,125: solo 1 de 8 fragmentos era relevante.](docs/capturas/03_mlflow_traza_jueces.jpg)
-*MLflow: traza de una pregunta multi-documento con las calificaciones de los jueces. La precisión del buscador es 0,125: solo 1 de 8 fragmentos era relevante.*
+Las preguntas multi-documento son las más difíciles. El buscador devuelve los chunks más parecidos a la pregunta completa, y en una comparación casi siempre provienen de un solo paper, así que el modelo recibe un lado y no puede completar la otra parte. Cuatro de los cinco errores son de recuperación, de modo que el asistente falla más al buscar que al redactar. Esto también explica por qué *retrieval relevance* se queda cerca de 0,2: ese juez califica cada chunk contra toda la pregunta, y en una pregunta sobre dos papers un chunk correcto de uno solo cuenta como irrelevante.
 
 ## 3. Preguntas sin respuesta y adversarias
 
