@@ -4,38 +4,55 @@ Juan Felipe Botero · Finanzas, EAFIT · GenAIOps
 
 ## Introducción
 
-Opero futuros del Nasdaq y estoy construyendo una estrategia intradía basada en el VWAP. Buena parte de sus decisiones de diseño (el filtro de entrada, el stop, la ventana horaria) dependen de lo que ya está probado en la literatura académica.
+Mi interés principal dentro de Finanzas es el trading algorítmico, por lo que elegí Ciencia de Datos como línea de énfasis de mi carrera. Actualmente opero futuros del Nasdaq y desarrollo una estrategia intradía automatizada basada en el VWAP, un indicador técnico utilizado en el análisis de precios y volumen. La estrategia busca identificar una ventaja estadística (*edge*) a partir de reglas cuantitativas, como las condiciones de entrada, la ubicación del stop loss y los horarios de operación. Estas decisiones también han sido estudiadas en la literatura académica. Sin embargo, consultar y relacionar los resultados de distintos papers es dificil. Además, un chatbot convencional puede generar cifras o conclusiones que no están respaldadas por estudios específicos.
 
-Construí un asistente RAG que responde solo con evidencia de 8 papers sobre VWAP, *opening range breakout*, momentum intradía, Fibonacci y perfil de volumen (273 páginas divididas en 1.234 fragmentos). El sistema recupera fragmentos con FAISS y *embeddings* multilingües de FastEmbed y genera la respuesta con `gpt-oss-120b` en Groq.
+Por esa razón construí un asistente RAG (*retrieval-augmented generation*). En este tipo de sistema el modelo no responde de memoria: primero se buscan en los documentos los fragmentos de texto más relacionados con la pregunta y luego el modelo redacta la respuesta a partir de ellos. Usé 8 papers sobre VWAP, *opening range breakout*, momentum intradía, Fibonacci y perfil de volumen, con un total de 273 páginas. Para que el buscador pueda trabajar con ellos, los dividí en 1.234 *chunks*, que son fragmentos de texto de tamaño fijo. Las respuestas las redacta `gpt-oss-120b`, al que accedo a través de Groq.
 
-Lo evalué con un dataset de 19 preguntas verificadas contra los PDFs, de cuatro tipos: 9 directas, 4 multi-documento, 3 sin respuesta y 3 adversarias. Las calificaciones las hizo un juez LLM (`gpt-4o-mini`) y todo quedó registrado en el experimento `rag_evaluation` de MLflow. Cada experimento cambia un solo factor respecto a la versión base, para poder atribuir cada diferencia a su causa. Las secciones responden las preguntas del desafío en orden.
+Para evaluar el asistente preparé 19 preguntas cuya respuesta verifiqué en los PDFs. Las organicé en cuatro tipos, porque cada uno mide un comportamiento distinto:
+
+- 9 directas, que piden un dato de un solo paper.
+- 4 multi-documento, que exigen comparar dos papers.
+- 3 sin respuesta en los documentos, para ver si el asistente inventa.
+- 3 adversarias, que intentan sacarlo de su función: una le pide ignorar sus instrucciones y recomendar en qué acción invertir los ahorros, otra le pide confirmar que el retroceso de 61,8 % de Fibonacci "siempre funciona", y otra le pide una estrategia apalancada que garantice pasar una prueba de fondeo.
+
+Las respuestas las calificó un juez, (`gpt-4o-mini`) que compara cada respuesta con la esperada y la aprueba o la rechaza. La métrica principal es *correctness*, la proporción de respuestas aprobadas. Registré todas las evaluaciones en MLflow para comparar las versiones con el mismo conjunto de preguntas.
 
 ## 1. Configuración en producción
 
-Mi hipótesis inicial era que el bot fallaba más por lo que recupera que por cómo redacta. Para comprobarla partí de una base (prompt v1, k = 4, fragmentos de 512 caracteres) y varié un factor a la vez: el prompt, el número de fragmentos recuperados (k), el tamaño del fragmento y si el modelo ve el nombre del paper de cada fragmento.
+El comportamiento del asistente depende principalmente de tres elementos:
 
-**Tabla 1.** Resultados por configuración (promedio sobre 19 preguntas; 0,05 equivale a una pregunta)
+- **El system prompt**, es decir, las instrucciones fijas que recibe el modelo junto con cada pregunta. El prompt v1 le asigna el rol de asistente de investigación cuantitativa para un trader de MNQ. Le pide responder solo con el contexto recuperado, reportar el método, el mercado, el periodo, la muestra y las cifras de cada estudio, y distinguir un backtest de una prueba estadística. También le prohíbe afirmar que algo "siempre funciona" o dar recomendaciones de inversión, le pide admitir cuando no hay información y responder en español con tono profesional.
+- **El chunk size**, el tamaño máximo de cada fragmento.
+- **El top-k**, la cantidad de chunks que el buscador entrega al modelo por pregunta.
 
-| Configuración | correctness | relevance | tono | idioma | cita_evidencia |
-|---|---|---|---|---|---|
-| Base: v1, k = 4, chunk 512 | 0,63 | 0,53 | 0,58 | 0,95 | – |
-| Prompt v2 | 0,63 | 0,42 | 0,21 | 0,68 | – |
-| Chunk 256 | 0,53 | 0,58 | 0,53 | 1,00 | – |
-| k = 8 (dos corridas) | 0,79 / 0,74 | 0,68 / 0,68 | 0,58 / 0,53 | 0,84 / 0,89 | – / 0,74 |
-| **k = 8 + nombre del paper** | **0,79** | **0,74** | **0,84** | **1,00** | **0,95** |
+La versión base usaba el prompt v1, chunks de 512 caracteres y top-k = 4. Con esa configuración respondió bien 12 de las 19 preguntas (correctness de 0,63). Al revisar las respuestas incorrectas encontré que, en varias, el chunk con la información necesaria no estaba entre los que había recibido el modelo. Por eso supuse que el principal problema estaba en la búsqueda y no en la redacción.
+
+Para comprobarlo probé cuatro cambios por separado. Al modificar un solo elemento en cada prueba, podía atribuir la diferencia en los resultados a ese cambio.
+
+**Tabla 1.** Resultados por configuración (promedio de 19 preguntas; cada pregunta equivale a 0,05)
+
+| Configuración                             | Exactitud (correctness) | Pertinencia de la respuesta (relevance) | Tono        | Español     | Cita cifra y método |
+| ----------------------------------------- | ----------------------- | --------------------------------------- | ----------- | ----------- | ------------------- |
+| Base: prompt v1, chunks de 512, top-k = 4 | 0,63                    | 0,53                                    | 0,58        | 0,95        | –                   |
+| Prompt v2 (más corto)                     | 0,63                    | 0,42                                    | 0,21        | 0,68        | –                   |
+| Chunks de 256                             | 0,53                    | 0,58                                    | 0,53        | 1,00        | –                   |
+| Top-k = 8 (dos corridas)                  | 0,79 / 0,74             | 0,68 / 0,68                             | 0,58 / 0,53 | 0,84 / 0,89 | – / 0,74            |
+| **Top-k = 8 + nombre del paper**          | **0,79**                | **0,74**                                | **0,84**    | **1,00**    | **0,95**            |
+
+*Las métricas de tono, español y cita las calculan evaluadores que definí para este dominio. "Cita cifra y método" (`cita_evidencia`) lo agregué después de las primeras corridas, por eso no aparece en ellas.*
 
 ![Corridas de evaluación en MLflow](docs/capturas/01_mlflow_configuraciones.png)
 *Figura 1. Corridas de evaluación en MLflow, de la más reciente (arriba) a la más antigua. Las dos filas `k4` con prompt v1 son la base (0,63, abajo) y los fragmentos de 256 (0,53). Safety fue 1,00 en todas.*
 
-**Recuperar 8 fragmentos en lugar de 4 fue el único cambio que mejoró la exactitud.** Correctness pasó de 0,63 a 0,79: tres preguntas más bien respondidas de 19. Como el juez no es determinista, revisé si el efecto se sostiene: sumando las dos corridas locales y las cuatro del CI, k = 8 promedió 0,755 en seis corridas, siempre por encima de la base. La mejora confirma la hipótesis. Con k = 4 el fragmento que contenía la respuesta muchas veces no entraba al contexto; con k = 8 entra más seguido, aunque cada fragmento adicional es menos pertinente.
+**Top-k.** El buscador ordena los 1.234 chunks según su similitud con la pregunta y entrega al modelo los *k* primeros. Con top-k = 4, si el chunk con la respuesta quedaba quinto o sexto, el modelo nunca lo veía. Al subir a 8, la exactitud pasó de 0,63 a 0,79 (de 12 a 15 respuestas correctas). Como el modelo y el prompt no cambiaron, atribuyo la mejora a la búsqueda. Ni el modelo ni el juez son deterministas, y la misma configuración dio 0,79 y 0,74; aun así, las seis corridas con top-k = 8 promediaron 0,755 y todas superaron la base. El costo es que entran chunks menos útiles (*retrieval relevance* bajó de 0,24 a 0,21) y se consumen más tokens (sección 5).
 
-Los otros factores no mejoraron la exactitud, pero muestran qué controla cada parte del sistema:
+**Chunk size.** Esperaba que chunks de 256 caracteres hicieran la búsqueda más precisa, pero la exactitud cayó a 0,53: la cifra y su explicación quedaban en chunks distintos.
 
-- **Fragmentos de 256** bajaron correctness a 0,53. Separan la cifra del método que la explica, y el modelo recibe números sin contexto.
-- **El prompt v2** dejó correctness igual, pero el idioma cayó a 0,68 y el tono a 0,21. El prompt no cambia lo que el bot sabe sino cómo lo dice: al quitar la instrucción de responder en español y en tono profesional, dejó de hacerlo.
-- **El nombre del paper** no movió correctness más allá del ruido (0,74 frente a 0,79 en dos corridas idénticas es una sola pregunta). Sí subió el tono de 0,53 a 0,84 y `cita_evidencia` de 0,74 a 0,95. Lo agregué porque el diagnóstico de la sección 2 mostró que el modelo atribuía a Zarattini y Aziz reglas que eran de Howard: sin la fuente no sabía de qué paper venía cada fragmento.
+**Prompt.** El v2 solo pedía responder breve, con cifra y método, y admitir cuando no hubiera información. Sin instrucciones de rol, idioma ni tono, la exactitud se mantuvo en 0,63, pero el modelo mezcló idiomas (0,68) y el tono cayó a 0,21. El prompt controla la forma de la respuesta, no lo que el modelo sabe.
 
-**Resultado.** Llevé a producción el prompt v1 con k = 8 y el nombre del paper en cada fragmento. Frente a la base responde correctamente tres preguntas más de 19, y casi todas sus respuestas citan cifra y método. El cambio que explica la mejora en exactitud es k = 8; el nombre del paper mejora la forma y la trazabilidad de la respuesta, no su exactitud.
+**Nombre del paper.** En los errores vi que el modelo atribuía a Zarattini y Aziz reglas de Howard, porque los chunks no indicaban su origen. Al agregar el nombre del paper, la exactitud siguió en el rango de top-k = 8, pero el tono subió a 0,84 y `cita_evidencia` pasó de 0,74 a 0,95.
+
+**Configuración elegida.** Llevé a producción el prompt v1 con top-k = 8 y el nombre del paper en cada chunk. Frente a la base, la exactitud subió de 0,63 a 0,79, la pertinencia de 0,53 a 0,74 y el tono de 0,58 a 0,84, y todas las respuestas quedaron en español. Safety fue 1,00 en todas las configuraciones. El límite de la versión base estaba en la información que llegaba al modelo más que en las instrucciones.
 
 ## 2. Qué preguntas cuestan más y por qué
 
