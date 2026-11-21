@@ -80,64 +80,78 @@ Las preguntas multi-documento son las más difíciles. El buscador devuelve los 
 
 ## 3. Preguntas sin respuesta y adversarias
 
-El bot **no inventó** en ninguna de las 3 preguntas sin respuesta (configuración óptima del VWAP en MNQ, ORB en Bitcoin, nivel del Nasdaq en 2027): en todas dijo que los papers no tienen esa información, en las seis configuraciones. También **resistió las 3 adversarias** (ignorar instrucciones, confirmar que el 61,8 % "siempre funciona" y una estrategia apalancada garantizada): safety 1,00 en todas las corridas, y en producción `sin_asesoria_personal` = 0,84 y `calibra_evidencia` aprobó 17 de 19 respuestas.
+Estas preguntas miden cómo se comporta el asistente cuando no debería responder. En este dominio, inventar una cifra o recomendar una operación es más grave que admitir que no hay información.
 
-Mis tres evaluadores del dominio están en `get_scorers()` de `app/run_eval.py`:
+El asistente no inventó en ninguna de las tres preguntas sin respuesta: en las seis configuraciones indicó que los papers no contenían esa información. También resistió las tres adversarias: no recomendó una acción, no confirmó que el 61,8 % "siempre funciona" y no ofreció una estrategia apalancada con resultados garantizados. Safety fue 1,00 en todas las corridas.
 
-| Evaluador | Tipo | Qué revisa |
-|---|---|---|
-| `cita_evidencia` | `@scorer` de código | Que la respuesta traiga una cifra y un método estadístico, o que admita que no hay información |
-| `calibra_evidencia` | `make_judge` | Que distinga un backtest de una prueba estadística y no esconda la evidencia negativa |
-| `sin_asesoria_personal` | `Guidelines` | Que no dé recomendaciones de inversión ni diga que algo "siempre funciona" |
+Safety solo detecta contenido dañino, así que definí tres evaluadores propios para medir lo que importa en este dominio:
+
+**Tabla 4.** Evaluadores del dominio y resultado en producción
+
+| Evaluador | Tipo | Qué revisa | Producción |
+|---|---|---|---|
+| `cita_evidencia` | Código (`@scorer`) | Que la respuesta incluya una cifra y un método, o que admita que no hay información | 0,95 |
+| `calibra_evidencia` | Juez LLM (`make_judge`) | Que distinga un backtest de una prueba estadística y no oculte la evidencia negativa | 17/19 |
+| `sin_asesoria_personal` | Guía (`Guidelines`) | Que no dé recomendaciones de inversión ni diga que algo "siempre funciona" | 0,84 |
+
+`cita_evidencia` es una regla en Python que busca cifras y términos de método, sin usar un modelo. Los otros dos usan un juez LLM, porque decidir si una respuesta presenta bien la evidencia exige interpretarla. En producción, 16 de 19 respuestas evitaron cualquier forma de asesoría y 17 de 19 presentaron la evidencia con el alcance correcto.
+
+<!-- Figura 3 (pendiente): dashboard, el chatbot ante una pregunta sin respuesta -->
 
 ## 4. Confianza en el juez
 
-Califiqué a mano 10 respuestas de producción (4 directas, 3 multi-documento, 2 sin respuesta, 1 adversaria) con el criterio de correctness, sin ver al juez, y las registré en MLflow como `correctness_humano` con fuente HUMAN. Después las califiqué con un segundo juez, `gpt-4o`.
+Todas las métricas anteriores dependen de un juez LLM, así que necesitaba saber cuánto se parece su criterio al mío. Califiqué a mano 10 respuestas de producción (4 directas, 3 multi-documento, 2 sin respuesta y 1 adversaria) con el mismo criterio de correctness, sin ver la calificación del juez. Registré mis calificaciones en MLflow como evaluación humana y luego repetí la calificación con un segundo juez, `gpt-4o`.
 
-| Juez | Acuerdo conmigo | Desacuerdo |
+**Tabla 5.** Acuerdo entre cada juez y mi calificación
+
+| Juez | Acuerdo | Caso en que difirió |
 |---|---|---|
-| `gpt-4o-mini` | 9/10 (90 %) | Aprobó la pregunta de Lo et al. aunque el bot no dijo que la evidencia fue más fuerte en Nasdaq |
-| `gpt-4o` | 9/10 (90 %) | Reprobó la de los stops de Howard porque no traía cifras, aunque la conclusión era correcta |
+| `gpt-4o-mini` | 9/10 (90 %) | Aprobó la pregunta de Lo et al. aunque la respuesta no decía que la evidencia fue más fuerte en Nasdaq |
+| `gpt-4o` | 9/10 (90 %) | Reprobó la de los stops de Howard por no traer cifras, aunque la conclusión era correcta |
 
-Empatan, pero se equivocan distinto: `gpt-4o-mini` es blando con respuestas incompletas y `gpt-4o` es estricto con las cifras. Mantengo `gpt-4o-mini` porque con 10 casos la diferencia no es concluyente, porque todos los experimentos se calificaron con él y porque `cita_evidencia` y `calibra_evidencia` cubren justamente las respuestas incompletas o sin evidencia. Confío en sus puntajes para comparar configuraciones, pero no en su valor absoluto: el 0,79 probablemente está un poco inflado en las preguntas de varias partes.
+Los dos jueces coinciden conmigo en la misma proporción, pero se equivocan en direcciones opuestas: `gpt-4o-mini` es permisivo con respuestas incompletas y `gpt-4o` es estricto cuando faltan cifras. Mantuve `gpt-4o-mini` porque con 10 casos la diferencia no es concluyente, porque todos los experimentos se calificaron con él y porque `cita_evidencia` y `calibra_evidencia` cubren justamente las respuestas incompletas. Confío en sus puntajes para comparar configuraciones, no como medida absoluta: en preguntas de varias partes es probable que el 0,79 esté algo inflado.
 
 ## 5. Costo de la configuración en producción
 
-| Configuración | Tokens de entrada | Tokens de salida | Latencia media |
-|---|---|---|---|
-| Base (k = 4) | 787 | 397 | 1,3 s |
-| Prompt v2 | 614 | 232 | 0,9 s |
-| k = 8 | 1.220 | 514 | 1,6 s |
-| **Producción (k = 8 + fuente)** | **1.423** | **593** | **1,7 s** |
+**Tabla 6.** Tokens y latencia promedio por pregunta
 
-Producción usa 1,8 veces los tokens de la base y tarda 0,4 s más por pregunta. Vale la pena: sube correctness de 0,63 a 0,79 y casi todas las respuestas pasan a citar evidencia, que es para lo que existe el bot. El costo que sí pesa es la cuota gratuita de Groq: cada evaluación con k = 8 gasta unos 40.000 tokens del bot, una quinta parte del límite diario.
+| Configuración | Tokens de entrada | Tokens de salida | Latencia |
+|---|---|---|---|
+| Base (top-k = 4) | 787 | 397 | 1,3 s |
+| Prompt v2 | 614 | 232 | 0,9 s |
+| Top-k = 8 | 1.220 | 514 | 1,6 s |
+| **Producción (top-k = 8 + nombre del paper)** | **1.423** | **593** | **1,7 s** |
+
+Recuperar 8 chunks con su fuente hace que el modelo lea más texto: la configuración de producción usa 1,8 veces los tokens de entrada de la base (1,7 veces en total) y tarda 0,4 s más por pregunta. Considero que el costo se justifica, porque la exactitud sube de 0,63 a 0,79 y casi todas las respuestas citan evidencia, que es la función del asistente. El costo que sí pesó fue la cuota gratuita de Groq: cada evaluación completa con top-k = 8 consume unos 40.000 tokens del modelo, una quinta parte del límite diario.
 
 ## 6. Producción y quality gate
 
-Promoví el prompt v1 a `@production` y dejé k = 8 y el nombre del paper como valores por defecto de la app y de la evaluación. En CI el prompt se toma por el alias del archivo, `prompts:/asistente_trading@v1_asistente_trading`. Los umbrales del gate en `tests/test_run_eval.py` son:
+Promoví el prompt v1 en el registro de prompts de MLflow con el alias `@production` y dejé top-k = 8 y el nombre del paper como valores por defecto de la app. Para que un cambio futuro no empeore el asistente sin que lo note, configuré un quality gate en GitHub Actions: cada vez que se propone un cambio, el flujo corre la evaluación completa y lo rechaza si alguna métrica queda por debajo de su umbral.
 
-| Juez | Umbral | Justificación |
+**Tabla 7.** Umbrales del quality gate
+
+| Métrica | Umbral | Justificación |
 |---|---|---|
-| correctness | 0,65 | La misma configuración, sin cambiar una línea, dio 0,74 · 0,79 · 0,79 · 0,68 en cuatro corridas. Cada pregunta vale 0,05, así que el rango es de dos preguntas. 0,65 acepta ese ruido y sigue bloqueando la base (0,63) y el chunk 256 (0,53) |
-| safety | 1,00 | Un asistente de trading no puede dar ninguna respuesta dañina |
-| cita_evidencia | 0,85 | Producción obtuvo 0,95-1,00; sin el nombre del paper bajó a 0,74 |
+| correctness | 0,65 | Acepta la variación de la configuración de producción y rechaza la base (0,63) y los chunks de 256 (0,53) |
+| safety | 1,00 | El asistente no puede dar ninguna respuesta dañina |
+| cita_evidencia | 0,85 | Producción obtiene 0,95–1,00; sin el nombre del paper bajó a 0,74 |
 
-Empecé con correctness en 0,70. El gate falló en `main` con 0,68 justo después de que el mismo código diera 0,79 en el PR. Ni el bot ni el juez son deterministas aunque la temperatura esté en 0, así que un umbral pegado al promedio rechaza la versión buena por azar. Lo bajé a 0,65 con esa evidencia y no con la intención de pasar.
+El umbral de correctness empezó en 0,70. La misma configuración, sin cambios en el código, obtuvo 0,74, 0,79, 0,79 y 0,68 en cuatro corridas, y el gate rechazó una de ellas por azar. Lo bajé a 0,65 porque acepta esa variación y sigue rechazando las configuraciones descartadas.
 
-Antes de eso el CI falló por otra razón: los 9 jueces LLM fallaron en 19 de 19 preguntas y solo se registró `cita_evidencia`. El secret `OPENAI_API_KEY` tenía un salto de línea pegado. Agregué al workflow un diagnóstico de la key (sin mostrarla), una limpieza de espacios y una llamada de prueba al juez que falla en segundos en lugar de después de 17 minutos de evaluación.
+Para comprobar que el gate funciona, abrí un pull request con un prompt saboteado que pedía responder en inglés, en una frase, sin cifras y adivinando si no sabía.
 
-**Resultado del CI**
+**Tabla 8.** Resultado del CI
 
 | Corrida | correctness | safety | cita_evidencia | idioma | tono | Gate |
 |---|---|---|---|---|---|---|
-| `main` con producción | 0,74 | 1,00 | 1,00 | 0,95 | 0,79 | Verde |
-| PR #15 con prompt saboteado | 0,47 | 1,00 | 0,00 | 0,00 | 0,21 | Rojo |
+| `main` con producción | 0,74 | 1,00 | 1,00 | 0,95 | 0,79 | Aprobado |
+| PR #15 con prompt saboteado | 0,47 | 1,00 | 0,00 | 0,00 | 0,21 | Rechazado |
 
-El prompt saboteado pide responder en inglés, en una frase, sin cifras ni métodos y adivinando si no sabe. El gate lo bloqueó por dos jueces: correctness (0,47 < 0,65) y cita_evidencia (0,00 < 0,85). Safety siguió en 1,00, lo que muestra que ese juez solo detecta contenido dañino y no una respuesta inútil; por eso no basta con él. El PR quedó abierto sin fusionar.
+![Corridas del workflow de evaluación en GitHub Actions](docs/capturas/06_actions_verde_y_rojo.jpg)
+*Figura 4. Corridas del workflow de evaluación en GitHub Actions. El PR #15 con el prompt saboteado quedó rechazado (rojo) y `main` con la configuración de producción, aprobado (verde). La corrida roja de `main` (commit `55b3d16`) es la que obtuvo correctness de 0,68 con el umbral anterior de 0,70.*
 
-![GitHub Actions: main en verde y el PR #15 con el prompt saboteado en rojo.](docs/capturas/06_actions_verde_y_rojo.jpg)
-*GitHub Actions: main en verde y el PR #15 con el prompt saboteado en rojo.*
+El gate rechazó el prompt saboteado por correctness (0,47) y `cita_evidencia` (0,00). Safety se mantuvo en 1,00: ese juez no detecta respuestas inútiles, y por eso el gate necesita métricas del dominio.
 
 ## 7. Con una semana más
 
-Atacaría primero la **recuperación en preguntas multi-documento**, que es donde más falla. Probaría generar una consulta por cada paper que mencione la pregunta (multi-query) y una búsqueda híbrida con BM25, porque las preguntas nombran autores que los embeddings no distinguen bien. Después cambiaría el modelo de embeddings, que admite pocos tokens por fragmento y puede ignorar el final de cada uno, y pasaría OCR a las tablas escaneadas de Lo et al. y a las imágenes de Kempen y Maier-Paape. Por último, ampliaría el dataset para que una pregunta no mueva el correctness en 0,05.
+Empezaría por la recuperación en preguntas multi-documento, donde ocurrieron cuatro de los cinco errores. Generaría una búsqueda separada para cada paper que mencione la pregunta (*multi-query*) y la combinaría con una búsqueda por palabras clave (BM25), porque los nombres de autores son términos exactos que los embeddings no distinguen bien. Después probaría un modelo de embeddings que admita chunks más largos, ya que el actual puede ignorar el final de cada fragmento, y aplicaría OCR a las tablas escaneadas de Lo et al. y a las imágenes de Kempen y Maier-Paape, que hoy el asistente no puede leer. Por último, ampliaría el dataset: con 19 preguntas, una sola respuesta mueve la exactitud en 0,05, lo que dificulta separar las mejoras reales del ruido.
