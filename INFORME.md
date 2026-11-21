@@ -73,8 +73,8 @@ Para saber dónde falla el asistente separé los resultados por tipo de pregunta
 | Métodos de Lo y de Batchelor | Generación | Inventó métodos para Lo y omitió a Batchelor, aunque recibió su chunk |
 | Operar la primera media hora (base) | Recuperación | Con top-k = 4 no llegó nada de Gao; con 8 se corrigió |
 
-![Traza de una pregunta multi-documento en MLflow](docs/capturas/03_mlflow_traza_jueces.jpg)
-*Figura 2. Traza de la pregunta sobre los métodos de Lo, Mamaysky y Wang y de Batchelor y Ramyar, con las calificaciones de los jueces. La precisión de la recuperación es 0,125: solo 1 de los 8 chunks era relevante.*
+![Traza de una pregunta multi-documento en MLflow](docs/capturas/02_mlflow_traza_multidocumento.png)
+*Figura 2. Traza de la pregunta que compara a Kempen y Maier-Paape con Tsinaslanidis et al. Siete de los ocho chunks recuperados provienen del mismo PDF (Tsinaslanidis, `producer: iText`) y solo uno de Kempen (`pdfTeX`), por lo que la respuesta solo reporta un estudio. El juez marcó los ocho como no relevantes porque califica cada chunk contra la pregunta completa.*
 
 Las preguntas multi-documento son las más difíciles. El buscador devuelve los chunks más parecidos a la pregunta completa, y en una comparación casi siempre provienen de un solo paper, así que el modelo recibe un lado y no puede completar la otra parte. Cuatro de los cinco errores son de recuperación, de modo que el asistente falla más al buscar que al redactar. Esto también explica por qué *retrieval relevance* se queda cerca de 0,2: ese juez califica cada chunk contra toda la pregunta, y en una pregunta sobre dos papers un chunk correcto de uno solo cuenta como irrelevante.
 
