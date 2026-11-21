@@ -157,4 +157,8 @@ El gate rechazó el prompt saboteado por correctness (0,47) y `cita_evidencia` (
 
 ## 7. Con una semana más
 
-Empezaría por la recuperación en preguntas multi-documento, donde ocurrieron cuatro de los cinco errores. Generaría una búsqueda separada para cada paper que mencione la pregunta (*multi-query*) y la combinaría con una búsqueda por palabras clave (BM25), porque los nombres de autores son términos exactos que los embeddings no distinguen bien. Después probaría un modelo de embeddings que admita chunks más largos, ya que el actual puede ignorar el final de cada fragmento, y aplicaría OCR a las tablas escaneadas de Lo et al. y a las imágenes de Kempen y Maier-Paape, que hoy el asistente no puede leer. Por último, ampliaría el dataset: con 19 preguntas, una sola respuesta mueve la exactitud en 0,05, lo que dificulta separar las mejoras reales del ruido.
+Empezaría por la búsqueda en preguntas multi-documento, donde ocurrieron cuatro de los cinco errores. Hoy el buscador recupera los chunks más parecidos a la pregunta completa, y cuando dos papers tratan el mismo tema uno de ellos ocupa casi todos los lugares. Para corregirlo haría una búsqueda separada por cada paper que mencione la pregunta (*multi-query*) y la combinaría con una búsqueda por palabras exactas (BM25), que reconoce los nombres de los autores mejor que la búsqueda por significado.
+
+También aplicaría OCR a las tablas escaneadas de Lo et al. y a las imágenes de Kempen y Maier-Paape. Esos resultados están guardados como imágenes dentro del PDF, así que hoy el asistente no puede leer sus cifras.
+
+Por último, ampliaría el dataset. Con 19 preguntas, una sola respuesta mueve la exactitud en 0,05, lo que hace difícil distinguir una mejora real de la variación del juez.
