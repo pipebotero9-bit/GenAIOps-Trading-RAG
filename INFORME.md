@@ -112,9 +112,6 @@ Empatan, pero se equivocan distinto: `gpt-4o-mini` es blando con respuestas inco
 
 Producción usa 1,8 veces los tokens de la base y tarda 0,4 s más por pregunta. Vale la pena: sube correctness de 0,63 a 0,79 y casi todas las respuestas pasan a citar evidencia, que es para lo que existe el bot. El costo que sí pesa es la cuota gratuita de Groq: cada evaluación con k = 8 gasta unos 40.000 tokens del bot, una quinta parte del límite diario.
 
-![MLflow: corrida de producción con latencia y tokens por pregunta (38.311 tokens en total).](docs/capturas/02_mlflow_run_produccion.jpg)
-*MLflow: corrida de producción con latencia y tokens por pregunta (38.311 tokens en total).*
-
 ## 6. Producción y quality gate
 
 Promoví el prompt v1 a `@production` y dejé k = 8 y el nombre del paper como valores por defecto de la app y de la evaluación. En CI el prompt se toma por el alias del archivo, `prompts:/asistente_trading@v1_asistente_trading`. Los umbrales del gate en `tests/test_run_eval.py` son:
@@ -140,9 +137,6 @@ El prompt saboteado pide responder en inglés, en una frase, sin cifras ni méto
 
 ![GitHub Actions: main en verde y el PR #15 con el prompt saboteado en rojo.](docs/capturas/06_actions_verde_y_rojo.jpg)
 *GitHub Actions: main en verde y el PR #15 con el prompt saboteado en rojo.*
-
-![Quality gate del PR #15: falla correctness (0,47 < 0,65) y cita_evidencia (0,00 < 0,85).](docs/capturas/07_actions_gate_rojo.jpg)
-*Quality gate del PR #15: falla correctness (0,47 < 0,65) y cita_evidencia (0,00 < 0,85).*
 
 ## 7. Con una semana más
 
