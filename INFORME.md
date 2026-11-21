@@ -5,9 +5,9 @@ Experiencias en Analítica  EAFIT
 GenAIOps
 
 ## Introducción
+Mi interés principal dentro de Finanzas está en las finanzas cuantitativas, especialmente en el trading algorítmico. Elegí Ciencia de Datos como línea de énfasis. Actualmente opero futuros del Nasdaq y desarrollo una estrategia intradía automatizada basada en el VWAP, un indicador técnico utilizado para analizar la relación entre precio y volumen. La estrategia busca identificar una ventaja estadística (*edge*) mediante reglas cuantitativas, como las condiciones de entrada, la ubicación del *stop loss* y los horarios de operación.
 
-Mi interés principal dentro de Finanzas es el trading algorítmico, utilizo la ciencia de Datos como línea de énfasis de mi carrera. Actualmente opero futuros del Nasdaq y desarrollo una estrategia automatizada basada en indicadores técnicos utilizando análisis de precios y volumen. La estrategia busca identificar una ventaja estadística (*edge*) a partir de reglas cuantitativas. Estas decisiones se estudian en la literatura académica. Sin embargo, relacionar los resultados de distintos papers es dificil. Además, un chatbot convencional puede generar cifras que no están respaldadas por estudios específicos.
-
+Estas decisiones también son  estudiadas en la literatura académica. Sin embargo, consultar y relacionar los resultados de distintos estudios es difícil. Además, un chatbot convencional puede generar cifras que no estén respaldadas por investigaciones específicas.
 Por esa razón construí un asistente RAG (*retrieval-augmented generation*). En este tipo de sistema el modelo no responde de memoria: primero se buscan en los documentos los fragmentos de texto más relacionados con la pregunta y luego el modelo redacta la respuesta a partir de ellos. Usé 8 papers sobre VWAP, ruptura del rango de precios, Fibonacci y perfil de volumen, con un total de 273 páginas. Para que el buscador pueda trabajar con ellos, los dividí en 1.234 *chunks*. Las respuestas las redacta `gpt-oss-120b`, accedo a través de Groq.
 
 Para evaluar el asistente preparé 19 preguntas cuya respuesta verifiqué en los PDFs. Las organicé en cuatro tipos, porque cada uno mide un comportamiento distinto:
