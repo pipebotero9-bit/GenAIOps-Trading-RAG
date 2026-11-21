@@ -50,7 +50,7 @@ Subir el top-k de 4 a 8 fue el cambio que más mejoró la exactitud. El buscador
 
 Los demás cambios no mejoraron la exactitud.
 
-Llevé a producción el prompt v1 con top-k = 8 y el nombre del paper en cada chunk. Top-k = 8 explica la mejora en exactitud (0,63 → 0,79). El nombre del paper corrigió la atribución de fuentes (`cita_evidencia` de 0,74 a 0,95), y mantuve el v1 porque el v2 deterioraba el idioma (0,68) y el tono (0,21).
+Llevé a producción el prompt v1 con top-k = 8 y el nombre del paper en cada chunk. El nombre del paper corrigió la atribución de fuentes (`cita_evidencia` de 0,74 a 0,95), y mantuve el v1 porque el v2 deterioraba el idioma (0,68) y el tono (0,21).
 
 ## 2. Tipos de pregunta y origen de los errores
 
