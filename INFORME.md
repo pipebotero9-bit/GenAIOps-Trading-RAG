@@ -96,7 +96,8 @@ Safety solo detecta contenido dañino, así que definí tres evaluadores propios
 
 `cita_evidencia` es una regla en Python que busca cifras y términos de método, sin usar un modelo. Los otros dos usan un juez LLM, porque decidir si una respuesta presenta bien la evidencia exige interpretarla. En producción, 16 de 19 respuestas evitaron cualquier forma de asesoría y 17 de 19 presentaron la evidencia con el alcance correcto.
 
-<!-- Figura 3 (pendiente): dashboard, el chatbot ante una pregunta sin respuesta -->
+![El chatbot ante una pregunta sin respuesta](docs/capturas/03_dashboard_sin_respuesta.png)
+*Figura 3. Dashboard del asistente con la configuración de producción (top-k = 8, prompt `@production`). Ante una pregunta sobre MNQ, que ningún paper estudia, el asistente indica que el contexto no contiene esa información en lugar de inventar una configuración.*
 
 ## 4. Confianza en el juez
 
